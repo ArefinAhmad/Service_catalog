@@ -1,0 +1,32 @@
+---
+- name: Inizializzare il dizionario per gli ID delle icone
+  set_fact:
+    picture_ids_map: {}
+
+- name: "Recuperare TUTTE le icone esistenti da ManageIQ"
+  uri:
+    # --- MODIFICA QUI ---
+    # Rimuovi '&attributes=id,name' dall'URL.
+    # 'id' e 'name' sono inclusi di default nella risposta.
+    url: "https://{{ ip_address_appliance }}/api/pictures?expand=resources"
+    # --- FINE MODIFICA ---
+    method: GET
+    user: "{{ manageiq_user }}"
+    password: "{{ manageiq_password }}"
+    force_basic_auth: yes
+    validate_certs: false
+    return_content: yes
+    status_code: 200
+  register: all_icons_check
+
+- name: Eseguire il caricamento di ogni icona
+  include_tasks: upload_single_icon.yml
+  loop: "{{ icons_to_upload }}"
+  loop_control:
+    loop_var: icon_item
+  vars:
+    existing_icons_list: "{{ all_icons_check.json.resources }}"
+
+- name: Verificare che il dizionario degli ID sia stato popolato
+  debug:
+    msg: "Mappa finale degli ID delle icone: {{ picture_ids_map }}"

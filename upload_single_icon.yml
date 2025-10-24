@@ -1,0 +1,63 @@
+---
+- name: "Verificare se l'icona '{{ icon_item.filename }}' è già presente (Controllo locale)"
+  set_fact:
+    # 1. Trova l'icona. Se non c'è, 'found_icon' diventa null (None)
+    #    Abbiamo rimosso 'default(omit)' e usato 'default(None)'
+    found_icon: "{{ existing_icons_list | selectattr('name', 'equalto', icon_item.filename) | first | default(None) }}"
+
+- name: "Impostare le variabili 'icon_exists' e 'current_icon_id'"
+  set_fact:
+    # 2. Se 'found_icon' non è null, 'icon_exists' è true
+    icon_exists: "{{ found_icon is not none }}"
+    # 3. Se 'found_icon' non è null, prendi l'id. Altrimenti, 'current_icon_id' diventa null
+    current_icon_id: "{{ found_icon.id | default(None) }}"
+
+- name: Leggere e codificare l'icona in base64
+  set_fact:
+    icon_content_b64: "{{ lookup('file', icon_item.local_path) | b64encode }}"
+  # Questa condizione ora funziona perché 'icon_exists' è 'false'
+  when: not icon_exists
+  no_log: true 
+
+- name: Creare l'icona "{{ icon_item.filename }}" se non esiste
+  uri:
+    url: "https://{{ ip_address_appliance }}/api/pictures"
+    method: POST
+    user: "{{ manageiq_user }}"
+    password: "{{ manageiq_password }}"
+    force_basic_auth: yes
+    validate_certs: false
+    headers:
+      Content-Type: application/json
+    body_format: json
+    body:
+      name: "{{ icon_item.filename }}"
+      extension: "{{ icon_item.extension }}"
+      content: "{{ icon_content_b64 }}"
+    status_code: [200, 201]
+  when: not icon_exists
+  register: create_icon
+  no_log: true 
+
+- name: Determinare l'ID dell'icona (Nuova)
+  set_fact:
+    # Sovrascrive 'current_icon_id' (che era 'null') con il nuovo ID
+    current_icon_id: "{{ create_icon.json.results[0].id }}"
+  when: create_icon is defined and create_icon.changed
+
+- name: Aggiungere l'ID dell'icona al dizionario
+  set_fact:
+    picture_ids_map: "{{ picture_ids_map | combine({ icon_item.name: current_icon_id }) }}"
+  vars:
+    icon_item_name: "{{ icon_item.name }}"
+  # --- MODIFICA CONDIZIONE ---
+  # 'is defined' era vero anche per 'null'. 'is not none' è più corretto.
+  when: current_icon_id is not none
+
+- name: Assert - ID Icona salvato
+  assert:
+    that:
+      # --- MODIFICA CONDIZIONE ---
+      - current_icon_id is not none
+    fail_msg: "Fallimento nel recuperare l'ID per l'icona '{{ icon_item.name }}'."
+    success_msg: "ID dell'icona '{{ icon_item.name }}' salvato: {{ current_icon_id }}"

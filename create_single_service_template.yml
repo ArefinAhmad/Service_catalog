@@ -1,7 +1,7 @@
 ---
 - name: Controllare se il service template "{{ template_item.name }}" esiste
   uri:
-    url: "https://{{ manageiq_host }}:{{ manageiq_port }}/api/service_templates?expand=resources&filter[]=name='{{ template_item.name | urlencode }}'"
+    url: "https://{{ ip_address_appliance }}/api/service_templates?expand=resources&filter[]=name='{{ template_item.name | urlencode }}'"
     method: GET
     user: "{{ manageiq_user }}"
     password: "{{ manageiq_password }}"
@@ -12,7 +12,7 @@
 
 - name: Creare il Service Template "{{ template_item.name }}" se non esiste
   uri:
-    url: "https://{{ manageiq_host }}:{{ manageiq_port }}/api/service_templates"
+    url: "https://{{ ip_address_appliance }}/api/service_templates"
     method: POST
     user: "{{ manageiq_user }}"
     password: "{{ manageiq_password }}"
@@ -27,11 +27,13 @@
       display: true # Fondamentale per renderlo visibile (Visualizza nel catalog: True)
       service_template_catalog_id: "{{ catalog_ids_map[template_item.catalog_name] }}"
       prov_type: "{{ template_item.prov_type }}"
-      type: "ServiceTemplate"
+      type: "ServiceTemplate{{ template_item.prov_type | capitalize }}"
+      
       config_info:
         provision:
           # Collega il dialogo al template per renderlo ordinabile
           dialog_id: "{{ dialog_ids_map[template_item.dialog_name] }}"
+          picture_id: "{{ picture_ids_map[template_item.get('picture_name', '___dummy___')] | default(omit) }}" # Imposta l'icona se specificata
           # Aggiungere qui la logica di provisioning (es. playbook, template cloudformation, etc.)
           # Per ora basta il dialogo per farlo apparire come nell'immagine
     status_code: [200, 201]

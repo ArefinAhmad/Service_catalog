@@ -20,5 +20,8 @@
     - name: Inclusione tasks - Creazione e verifica dialoghi
       include_tasks: create_dialogs.yml
 
+    - name: Inclusione tasks - Caricamento icone personalizzate
+      include_tasks: upload_icons.yml
+
     - name: Inclusione tasks - Creazione e verifica service templates
       include_tasks: create_service_templates.yml
